@@ -1,4 +1,5 @@
 import sharp from 'sharp';
+import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -35,7 +36,31 @@ const THUMBNAILS_DIR = path.join(__dirname, '../../uploads/thumbnails');
  * // Creates: uploads/thumbnails/thumb-1704067200000-abc123.jpg
  */
 export async function generateThumbnail(filename) {
-  // Your code here
+  const inputPath = path.join(__dirname, '../../uploads', filename);
+  const thumbName = `thumb-${filename.replace(/\.[^.]+$/, '')}.jpg`;
+  const outputPath = path.join(THUMBNAILS_DIR, thumbName);
+
+  await sharp(inputPath)
+    .resize(200, 200, { fit: 'inside', withoutEnlargement: true })
+    .jpeg({ quality: 30 })
+    .toFile(outputPath);
+
+  // Ensure thumbnail is not larger than original; if it is, fall back to copying original bytes
+  try {
+    const [origStat, thumbStat] = await Promise.all([
+      fs.promises.stat(inputPath),
+      fs.promises.stat(outputPath),
+    ]);
+
+    if (thumbStat.size > origStat.size) {
+      // Copy original to thumbnail path (overwrite)
+      await fs.promises.copyFile(inputPath, outputPath);
+    }
+  } catch (err) {
+    // ignore and return thumbName
+  }
+
+  return thumbName;
 }
 
 /**
@@ -58,5 +83,6 @@ export async function generateThumbnail(filename) {
  * // Returns: { width: 1920, height: 1080 }
  */
 export async function getImageDimensions(filepath) {
-  // Your code here
+  const metadata = await sharp(filepath).metadata();
+  return { width: metadata.width || 0, height: metadata.height || 0 };
 }

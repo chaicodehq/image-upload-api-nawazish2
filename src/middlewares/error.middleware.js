@@ -21,5 +21,28 @@
  *    - { error: { message: err.message || 'Internal server error' } }
  */
 export function errorHandler(err, req, res, next) {
-  // Your code here
+  // Multer file size
+  if (err && err.code === 'LIMIT_FILE_SIZE') {
+    return res.status(400).json({ error: { message: 'File size exceeds 5MB limit' } });
+  }
+
+  // Multer invalid file type (we threw Error with message)
+  if (err && err.message && /invalid file type/i.test(err.message)) {
+    return res.status(400).json({ error: { message: err.message } });
+  }
+
+  // Mongoose validation error
+  if (err && err.name === 'ValidationError') {
+    const messages = Object.values(err.errors).map((e) => e.message).join(', ');
+    return res.status(400).json({ error: { message: messages } });
+  }
+
+  // Duplicate key
+  if (err && err.code === 11000) {
+    return res.status(409).json({ error: { message: 'Resource already exists' } });
+  }
+
+  const status = err && err.status ? err.status : 500;
+  const message = err && err.message ? err.message : 'Internal server error';
+  return res.status(status).json({ error: { message } });
 }
